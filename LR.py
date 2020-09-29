@@ -236,13 +236,14 @@ def update_weights(weights, gradients, lr):
     '''    
     return weights - np.dot(lr,gradients)
 
-def early_stopping(prev_dev_loss, prev_train_loss, current_dev_loss, current_train_loss):
+def early_stopping(prev_dev_loss, prev_train_loss, current_dev_loss, current_train_loss, persistence_value):
     # allowed to modify argument list as per your need
     # return True or False
-    current_gap = abs(current_dev_loss - current_train_loss)
-    prev_gap = abs(prev_dev_loss - prev_train_loss)
-    #print(current_gap/prev_gap)
-    if current_gap/prev_gap > 1.2:
+    
+    dev_loss_slope = (current_dev_loss - prev_dev_loss) / persistence_value
+    train_loss_slope = (current_train_loss - prev_train_loss) / persistence_value
+
+    if dev_loss_slope >= 0 or train_loss_slope >= 0:
         return True
     return False
     
@@ -272,6 +273,7 @@ def do_gradient_descent(train_feature_matrix,
 
     prev_dev_loss = dev_loss
     prev_train_loss = train_loss
+    persistence_value = 25000
 
     for step in range(1,max_steps+1):
 
@@ -289,16 +291,18 @@ def do_gradient_descent(train_feature_matrix,
             train_loss = mse_loss(train_feature_matrix, weights, train_targets)
             print("step {} \t dev loss: {} \t train loss: {}".format(step,dev_loss,train_loss))
 
-            '''
-            implement early stopping etc. to improve performance.
-            '''
-            current_dev_loss = dev_loss
-            current_train_loss = train_loss
-            if early_stopping(prev_dev_loss, prev_train_loss, current_dev_loss, current_train_loss):
+        '''
+        implement early stopping etc. to improve performance.
+        '''
+        if step%persistence_value == 0:
+            current_dev_loss = mse_loss(dev_feature_matrix, weights, dev_targets)
+            current_train_loss = mse_loss(train_feature_matrix, weights, train_targets)
+            if early_stopping(prev_dev_loss, prev_train_loss, current_dev_loss, current_train_loss, persistence_value):
                 break
-            prev_dev_loss = dev_loss
-            prev_train_loss = train_loss
+            prev_dev_loss = current_dev_loss
+            prev_train_loss = current_train_loss
 
+    #print('lr : {}, C : {} '.format(lr, C))	 # Comment it later
     return weights
 
 def do_evaluation(feature_matrix, targets, weights):
@@ -324,7 +328,7 @@ if __name__ == '__main__':
                         train_targets, 
                         dev_features,
                         dev_targets,
-                        lr=0.0001,
+                        lr=0.0004,
                         C=0.0,
                         batch_size=32,
                         max_steps=2000000,
@@ -334,5 +338,7 @@ if __name__ == '__main__':
     dev_loss=do_evaluation(dev_features, dev_targets, gradient_descent_soln)
     train_loss=do_evaluation(train_features, train_targets, gradient_descent_soln)
     print('gradient_descent_soln \t train loss: {}, dev_loss: {} '.format(train_loss, dev_loss))
+    
+    
     
     
